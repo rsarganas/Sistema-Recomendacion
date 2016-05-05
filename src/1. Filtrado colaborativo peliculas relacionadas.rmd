@@ -1,0 +1,113 @@
+---
+title: "1. Peliculas relacionadas"
+author: "Roxana Sarganas"
+date: "24 de abril de 2016"
+output: html_document
+---
+
+
+```{r, echo=FALSE}
+library(plyr)
+```
+
+
+Uso el Dataset ml-100k especifícamente los ficheros siguientes:
+
+u.data     -- The full u data set, 100000 ratings by 943 users on 1682 items.
+              Each user has rated at least 20 movies.  Users and items are
+              numbered consecutively from 1.  The data is randomly
+              ordered. This is a tab separated list of 
+	            user id | item id | rating | timestamp. 
+              The time stamps are unix seconds since 1/1/1970 UTC   
+              
+u.item     -- Information about the items (movies); this is a tab separated
+              list of
+              movie id | movie title | release date | video release date |
+              IMDb URL | unknown | Action | Adventure | Animation |
+              Children's | Comedy | Crime | Documentary | Drama | Fantasy |
+              Film-Noir | Horror | Musical | Mystery | Romance | Sci-Fi |
+              Thriller | War | Western |
+              The last 19 fields are the genres, a 1 indicates the movie
+              is of that genre, a 0 indicates it is not; movies can be in
+              several genres at once.
+              The movie ids are the ones used in the u.data data set.
+
+
+
+### DATA (u.data)
+```{r, echo=FALSE}
+user <- read.table("../dat/ml-100k/u.data", sep = "\t")
+user <- user[,1:3]
+colnames(user) <- c("user", "item", "rating") #renombra las columnas
+head(user)
+#str(user)
+```
+
+### ITEM (u.item)
+```{r, echo=FALSE}
+item <- read.table("../dat/ml-100k/u.item", sep = "|", quote = "")
+colnames(item) <- c("item", "title") #renombra las columnas
+head(item[1:2])
+```
+
+
+### Uno las 2 tablas a analizar: user e Item
+
+```{r, echo=FALSE, warning=FALSE}
+
+movies <- merge(user,item)
+movies <- movies[,1:4]
+#head(movies)
+
+```
+
+#### Creo la función que, a partir de una pelicula dada, proporcione la lista de las, p.e., 10 películas más  próximas a ella. La función admite como argumento el título de la película (tal cual aparece en el fichero `u.item`) y devuelve un vector con las más próximas.
+
+####Ejemplo 1:
+```{r, echo=FALSE,warning=FALSE}
+
+recomienda.peliculas <- function (d_peliculas, d_kn, d_nitems) {
+  
+  val_peliculas <- movies[movies$title == d_peliculas,]  
+  val_otherpeli <- movies[movies$title != d_peliculas,]  
+  
+  tmp <- merge(val_peliculas, val_otherpeli, by = "user") 
+  tmp <- tmp[order(-tmp$user),]
+  
+  
+  result <- ddply(tmp, .(title.y), summarize, n = length(title.y), cosine.dist = cor(rating.x, rating.y))
+  result <- result[order(-abs(result$cosine.dist)),] #ordena la correlación
+  result <- result[result$n >= d_nitems,]
+  return (head(result, d_kn))
+}
+
+result <- recomienda.peliculas("Sense and Sensibility (1995)", 10, 10)
+result
+```
+
+#### Se muestra las 10 películas más próximas a la película: Sense and Sensibility (1995) 
+
+
+####Ejemplo 2:
+
+```{r, echo=FALSE,warning=FALSE}
+recomienda.peliculas <- function (d_peliculas, d_kn, d_nitems) {
+  
+  val_peliculas <- movies[movies$title == d_peliculas,]  
+  val_otherpeli <- movies[movies$title != d_peliculas,]  
+  
+  tmp <- merge(val_peliculas, val_otherpeli, by = "user") 
+  tmp <- tmp[order(-tmp$user),]
+  
+  
+  result <- ddply(tmp, .(title.y), summarize, n = length(title.y), cosine.dist = cor(rating.x, rating.y))
+  result <- result[order(-abs(result$cosine.dist)),] #ordena la correlación
+  result <- result[result$n >= d_nitems,]
+  return (head(result, d_kn))
+}
+
+result <- recomienda.peliculas("Like Water For Chocolate (Como agua para chocolate) (1992)", 10, 10)
+result
+```
+
+#### Se muestra las 10 películas más próximas a la película: Like Water For Chocolate (Como agua para chocolate) (1992) 

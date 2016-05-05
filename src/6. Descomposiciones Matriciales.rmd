@@ -1,0 +1,99 @@
+---
+title: "06. Descomposición Matriciales"
+author: "Roxana Sarganas"
+date: "3 de mayo de 2016"
+output: html_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=12}
+library(reshape2)
+library(plyr)
+library(NMF)
+library(ggplot2)
+
+pelis <- read.table("../dat/ml-100k/u.data", sep = "\t")
+generos <- read.table("../dat/ml-100k/u.item", sep = "|", quote = "")
+
+colnames(pelis) <- c("user", "movieid", "rating", "date")
+
+colnames(generos) <- c("movieid",
+                       "movietitle",
+                       "releasedate",
+                       "videoreleasedate",
+                       "IMDbURL",               
+                       "unknown",
+                       "Action",
+                       "Adventure",
+                       "Animation",
+                       "Children",
+                       "Comedy",
+                       "Crime",
+                       "Documentary",
+                       "Drama",
+                       "Fantasy",
+                       "Film-Noir",  
+                       "Horror",
+                       "Musical",
+                       "Mystery",
+                       "Romance",
+                       "Sci-Fi",
+                       "Thriller",
+                       "War",
+                       "Western")
+
+tmp <- merge(pelis, generos)
+#head(tmp)
+tmp$movietitle <- tmp$releasedate <- tmp$videoreleasedate <- tmp$IMDbURL <- tmp$date <- NULL
+
+tmp <- melt(tmp, id.vars = c("user", "movieid", "rating"))
+tmp <- tmp[tmp$value == 1,]
+
+tmp <- ddply(tmp, .(user, variable), summarize, rating = mean(rating))
+
+tmp <- dcast(tmp, user ~ variable)
+m   <- as.matrix(tmp[,-1])
+#head(m)
+rownames(m) <- tmp[,1]
+
+m[is.na(m)] <- 0
+
+res <- nmf(m, 6) #Provides a framework to perform Non-negative Matrix Factorization (NMF). 
+#head(res)
+
+h <- res@fit@H  
+#h[h < 0.00001] <- 0
+
+h <- 100 * h / rowSums(h)
+
+h <- data.frame(h)
+h$factor <- 1:nrow(h)
+h <- melt(h, id.vars = "factor")
+
+ggplot(h, aes(x = variable, y = value)) + geom_bar(stat = "identity") + facet_grid(factor~.)
+```
+
+1. Los factores tiene la interpretación siguiente:
+
+Las filas representan a los usuarios y las columnas son géneros de películas que estos han visto. La descomposición revelaría factores no explícitos (las distribuciones de probabilidad sobre las filas) que hacen que algunos usarios vean determinados géneros (juntos) y no otros; luego cada usuario tendría asignada una cierta propensión (dada por las filas de la matriz H) a cada uno de los factores.
+
+2. Gráfica con distintos Factores:
+
+```{r, message=FALSE, warning=FALSE, fig.height=6, fig.width=12}
+res <- nmf(m, 7) #Provides a framework to perform Non-negative Matrix Factorization (NMF). 
+#head(res)
+
+h <- res@fit@H  
+#h[h < 0.00001] <- 0
+
+h <- 100 * h / rowSums(h)
+
+h <- data.frame(h)
+h$factor <- 1:nrow(h)
+h <- melt(h, id.vars = "factor")
+
+ggplot(h, aes(x = variable, y = value)) + geom_bar(stat = "identity") + facet_grid(factor~.)
+```
+
+La gráfica es similar a la anterior aunque las filas muestren un orden diferente.
+

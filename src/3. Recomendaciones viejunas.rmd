@@ -1,0 +1,113 @@
+---
+title: "03.Recomendaciones viejunas"
+author: "Roxana Sarganas"
+date: "28 de abril de 2016"
+output: html_document
+---
+
+```{r, echo=FALSE}
+library(plyr)
+```
+
+
+Uso el Dataset ml-100k especifícamente los ficheros siguientes:
+
+u.user     -- Demographic information about the users; this is a tab
+              separated list of
+              user id | age | gender | occupation | zip code
+              The user ids are the ones used in the u.data data set.
+              
+u.data     -- The full u data set, 100000 ratings by 943 users on 1682 items.
+              Each user has rated at least 20 movies.  Users and items are
+              numbered consecutively from 1.  The data is randomly
+              ordered. This is a tab separated list of 
+	            user id | item id | rating | timestamp. 
+	            
+              The time stamps are unix seconds since 1/1/1970 UTC                
+u.item     -- Information about the items (movies); this is a tab separated
+              list of movie id | movie title | release date | video release date |
+              IMDb URL | unknown | Action | Adventure | Animation |
+              Children's | Comedy | Crime | Documentary | Drama | Fantasy |
+              Film-Noir | Horror | Musical | Mystery | Romance | Sci-Fi |
+              Thriller | War | Western |
+              The last 19 fields are the genres, a 1 indicates the movie
+              is of that genre, a 0 indicates it is not; movies can be in
+              several genres at once.
+              The movie ids are the ones used in the u.data data set.
+              
+### USERS (u.user)
+```{r}
+usuario <- read.table("../dat/ml-100k/u.user", sep = "|", quote = "")
+colnames(usuario) <- c("user", "edad", "sex", "profesion","val") #renombra las columnas
+usuario$val <- NULL
+#head(usuario)
+#str(usuario)
+```
+
+### DATA (u.data)
+```{r}
+data <- read.table("../dat/ml-100k/u.data", sep = "\t")
+data <- data[,1:3]
+colnames(data) <- c("user", "item", "rating") #renombra las columnas
+#head(data)
+```
+
+### ITEM (u.item)
+```{r}
+item <- read.table("../dat/ml-100k/u.item", sep = "|", quote = "")
+colnames(item) <- c("item", "title") #renombra las columnas
+#head(item[1:2])
+```
+
+
+### Uno las 3 tablas a analizar: data, user e item
+
+```{r}
+viejuna <- merge(usuario, data, by = "user") #cruza la tablas por peliculas
+viejuna1 <- merge(viejuna, item, by = "item") #cruza la tablas por peliculas
+head(viejuna1[1:7])
+```
+
+
+### Selecciono una lista de usuarios similares a mi en función de mi edad y sexo:
+
+```{r, echo=FALSE}
+edad.0 <- 43 
+sex.0 <- "F"
+
+tmp.0 <- viejuna1[viejuna1$edad == edad.0,] #crea una lista con las coincidencias
+tmp.0 <- tmp.0[tmp.0$sex == sex.0,]
+tmp.0 <- tmp.0[,1:7]
+#head(tmp.0)
+
+tmp.1 <- viejuna1[viejuna1$edad != edad.0,]  #crea una lista con los demás usuarios
+tmp.1 <- tmp.1[tmp.1$sex != sex.0,]
+tmp.1 <- tmp.1[,1:7]
+#head(tmp.1)
+
+tmp <- merge(tmp.0, tmp.1, by = "item")  
+head(tmp)
+```
+
+```{r}
+res <- ddply(tmp, .(user.y), summarize, n = length(title.y), cosine.dist = cor(rating.x, rating.y))
+
+res <- res[order(-abs(res$cosine.dist)),] #ordena la correlación
+
+head(res[res$n > 10,])
+
+```
+###Conclusión: Después de realizar los filtros por edad y sexo, selecciono al usuario que tiene la correlación más alta y muestro la relación de películas recomendadas global.
+
+```{r, echo=FALSE}
+
+result<-tmp[tmp$user.y == 519,]
+result1 <- result$title.x
+recomienda <- result1
+#unique(recomienda)
+recomienda[!duplicated(recomienda)]
+
+```
+
+
+

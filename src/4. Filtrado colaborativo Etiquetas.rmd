@@ -1,0 +1,148 @@
+---
+title: "04.Filtrado colaborativo Etiquetas"
+author: "Roxana Sarganas"
+date: "2 de mayo de 2016"
+output: html_document
+---
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE}
+library(reshape2)
+library(plyr)
+```
+
+
+Uso el Dataset ml-100k especifícamente los ficheros siguientes:
+
+
+u.data     -- The full u data set, 100000 ratings by 943 users on 1682 items.
+              Each user has rated at least 20 movies.  Users and items are
+              numbered consecutively from 1.  The data is randomly
+              ordered. This is a tab separated list of 
+	            user id | item id | rating | timestamp. 
+	            
+
+u.item     -- Information about the items (movies); this is a tab separated
+              list of movie id | movie title | release date | video release date |
+              IMDb URL | unknown | Action | Adventure | Animation |
+              Children's | Comedy | Crime | Documentary | Drama | Fantasy |
+              Film-Noir | Horror | Musical | Mystery | Romance | Sci-Fi |
+              Thriller | War | Western |
+              The last 19 fields are the genres, a 1 indicates the movie
+              is of that genre, a 0 indicates it is not; movies can be in
+              several genres at once.
+              The movie ids are the ones used in the u.data data set.
+     
+              
+### PELIS (u.data)     
+```{r, echo=FALSE}
+pelis <- read.table("../dat/ml-100k/u.data", sep = "\t")
+colnames(pelis) <- c("user", "movieid", "rating", "date")
+#head(data)
+```
+
+              
+### GENEROS (u.item)    
+```{r, echo=FALSE}
+generos <- read.table("../dat/ml-100k/u.item", sep = "|", quote = "")
+
+colnames(generos) <- c("movieid",
+                       "movietitle",
+                       "releasedate",
+                       "videoreleasedate",
+                       "IMDbURL",               
+                       "unknown",
+                       "Action",
+                       "Adventure",
+                       "Animation",
+                       "Children",
+                       "Comedy",
+                       "Crime",
+                       "Documentary",
+                       "Drama",
+                       "Fantasy",
+                       "Film-Noir",  
+                       "Horror",
+                       "Musical",
+                       "Mystery",
+                       "Romance",
+                       "Sci-Fi",
+                       "Thriller",
+                       "War",
+                       "Western")
+```
+
+### Uno las 2 tablas a analizar: pelis y generos
+
+```{r, echo=FALSE}
+tmp <- merge(pelis, generos)
+tmp$movietitle <- tmp$releasedate <- tmp$videoreleasedate <- tmp$IMDbURL <- tmp$date <- NULL
+head(tmp,50)
+```
+   
+### Convierto a matriz y obtengo puntuación medias que los usuarios han dado a las películas del género en cuestión.
+```{r, echo=FALSE, warning=FALSE}
+
+tmp <- melt(tmp, id.vars = c("user", "movieid", "rating"))
+tmp <- tmp[tmp$value == 1,]
+tmp <- ddply(tmp, .(user, variable), summarize, rating = mean(rating))
+tmpc <- dcast(tmp, user ~ variable)
+tmp[is.na(tmp)] <- 0
+head(tmp)
+
+```
+
+####Creo la función que dada una película nueva (que nadie ha visto) obtenga una lista de los usuarios a quienes le recomendaría basada en cuanto les gustan los géneros a los que pertenece la nueva película.
+
+```{r}
+etiquetas <- function (d_pelicula, d_genero) {
+
+  val_user <- tmp[tmp$variable == d_genero,]  #crea una lista de peliculas que ha visto el usuario 22
+  val_otherusers <- tmp[tmp$variable != d_genero,]  #crea una lista con los demás usuarios
+
+  tmp1 <- merge(val_user, val_otherusers, by = "user") #cruza la tablas por peliculas
+  tmp1 <- tmp1[order(-tmp1$user),]
+  
+  
+  result <- ddply(tmp1, .(variable.y), summarize, n = length(variable.y), cosine.dist = cor(rating.x, rating.y))
+  result <- result[order(-abs(result$cosine.dist)),]  
+}
+
+result <- etiquetas("El poder de la moda (2015)", "Drama")
+result
+
+```
+
+
+####A las personas que les gusta el Drama tiene un coeficiente alto en Romance y Guerra, con lo que la recomendación estaría orientada a estas personas
+
+```{r}
+lista <- (head(subset(tmp, variable == c("Romance","War")),40))
+lista
+```
+
+
+
+```{r}
+etiquetas <- function (d_pelicula, d_genero) {
+
+  val_user <- tmp[tmp$variable == d_genero,]  #crea una lista de peliculas que ha visto el usuario 22
+  val_otherusers <- tmp[tmp$variable != d_genero,]  #crea una lista con los demás usuarios
+
+  tmp1 <- merge(val_user, val_otherusers, by = "user") #cruza la tablas por peliculas
+  tmp1 <- tmp1[order(-tmp1$user),]
+  
+  
+  result <- ddply(tmp1, .(variable.y), summarize, n = length(variable.y), cosine.dist = cor(rating.x, rating.y))
+  result <- result[order(-abs(result$cosine.dist)),]  
+}
+
+result <- etiquetas("Colonia (2015)", "Romance")
+result
+```
+
+####A las persona que les gusta el Romance tiene un coeficiente alto en Drama y Comedia, con lo que la recomendación estaría orientada a estas personas
+
+```{r}
+lista <- (head(subset(tmp, variable == c("Drama","Comedy")),40))
+lista
+```
